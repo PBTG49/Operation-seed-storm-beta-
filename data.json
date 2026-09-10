@@ -1,0 +1,37 @@
+{
+  "stats": {"plants": 0, "regions": 0, "projects": 0, "verified": 0},
+  "regions": {
+    "lowland-tropics": {
+      "name": "Lowland tropics",
+      "code": "TRP-01",
+      "summary": "Warm, humid lowlands with high rainfall and long growing seasons. Exact recommendations should be narrowed further by local soil, flooding and native range.",
+      "conditions": ["High heat", "High rainfall", "Lowland", "Long growing season"],
+      "recommended": ["Replace with expert-reviewed species", "Replace with expert-reviewed species", "Replace with expert-reviewed species"],
+      "avoid": ["Non-native fast-growing species chosen only for speed", "Species outside their natural range"],
+      "steps": ["Confirm land access and permissions", "Check local soil, water and flooding patterns", "Select locally appropriate native species", "Plant during the locally suitable season", "Protect and monitor young plants"]
+    },
+    "temperate-woodland": {
+      "name": "Temperate woodland",
+      "code": "TMP-02",
+      "summary": "Seasonal climates with distinct growing and dormant periods. Exact recommendations should be localized by soil, moisture and elevation.",
+      "conditions": ["Seasonal climate", "Moderate rainfall", "Variable winter", "Mixed soils"],
+      "recommended": ["Replace with expert-reviewed species", "Replace with expert-reviewed species", "Replace with expert-reviewed species"],
+      "avoid": ["Planting without checking frost tolerance", "Introducing species from unrelated regions"],
+      "steps": ["Check local frost and drought patterns", "Confirm native range", "Prepare soil without unnecessary disturbance", "Plant at the locally appropriate time", "Protect young plants from browsing"]
+    },
+    "semi-arid-grassland": {
+      "name": "Semi-arid grassland",
+      "code": "SAR-03",
+      "summary": "Dry landscapes where water availability can be the limiting factor. Restoration should consider the whole plant community, not just trees.",
+      "conditions": ["Low rainfall", "High evaporation", "Seasonal drought", "Open landscape"],
+      "recommended": ["Replace with expert-reviewed species", "Replace with expert-reviewed species", "Replace with expert-reviewed species"],
+      "avoid": ["Planting water-hungry trees where they are not native", "Large-scale planting without a water plan"],
+      "steps": ["Confirm the ecosystem is suitable for tree planting", "Choose drought-adapted native plants if appropriate", "Time planting around reliable rainfall", "Protect sites from grazing pressure", "Monitor survival before expanding"]
+    }
+  },
+  "projects": [
+    {"name": "Pilot community site", "region": "Lowland tropics", "status": "Prototype", "plants": 0, "description": "Placeholder project card for the eventual community project directory."},
+    {"name": "Temperate test plot", "region": "Temperate woodland", "status": "Prototype", "plants": 0, "description": "A second placeholder showing how regional projects can be displayed."},
+    {"name": "Dryland restoration study", "region": "Semi-arid grassland", "status": "Prototype", "plants": 0, "description": "Example structure for a project where non-tree restoration may also matter."}
+  ]
+}
