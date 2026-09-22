@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Operation Seed Storm pilot explorer: choose a location, region, season, planting place and planting approach.">
+  <title>Explore — Operation Seed Storm</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <style>
+    :root { --pilot-accent:#7fd38c; --pilot-accent-soft:rgba(127,211,140,.14); }
+    .pilot-intro{margin-top:12px;color:#7f8d84;font-size:12px;line-height:1.65;max-width:900px}
+    .explore-layout{align-items:start}
+    .map-panel{min-width:0}
+    .map-panel .map-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .real-map{min-height:540px;height:min(65vh,700px);position:relative;overflow:hidden;background:#0a1510;border:1px solid var(--line)}
+    #regionMap .leaflet-control-zoom a{background:rgba(11,21,17,.94);color:var(--text);border-color:var(--line-strong)}
+    #regionMap .leaflet-control-zoom a:hover{background:#132018}
+    #regionMap .leaflet-control-attribution{background:rgba(7,16,13,.76);color:#738178;font-size:9px}
+    #regionMap .leaflet-control-attribution a{color:#98ad9e}
+    .map-help{position:absolute;z-index:900;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;gap:10px;pointer-events:none}
+    .map-chip{border:1px solid rgba(216,235,224,.13);background:rgba(7,16,13,.82);backdrop-filter:blur(8px);padding:8px 10px;border-radius:10px;color:#a3b1a9;font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+    .selection-point{width:18px;height:18px;margin-left:-9px;margin-top:-9px;border-radius:50%;border:2px solid #eef6ef;background:var(--pilot-accent);box-shadow:0 0 0 8px rgba(127,211,140,.18),0 0 24px rgba(127,211,140,.58)}
+    .featured-region-layer{color:#87a68e;weight:1;opacity:.72;fillColor:#7fd38c;fillOpacity:.045}
+    .featured-region-layer:hover{weight:1.6;fillOpacity:.12}
+    .map-loading{position:absolute;z-index:850;left:12px;bottom:12px;padding:8px 10px;border-radius:9px;background:rgba(7,16,13,.86);border:1px solid var(--line);color:#93a49a;font-size:10px;letter-spacing:.03em}
+
+    .region-index{margin-top:18px;border:1px solid var(--line);background:rgba(255,255,255,.012);border-radius:14px;padding:14px}
+    .region-index-head{display:flex;align-items:end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .region-index-title h3{margin:4px 0 0;font-family:"Space Grotesk",sans-serif;font-size:20px}
+    .region-count{font-size:11px;color:#718078}
+    .region-tools{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;margin-top:12px}
+    .region-tools input,.region-tools select{width:100%;box-sizing:border-box;background:#0b1511;color:var(--text);border:1px solid var(--line-strong);border-radius:9px;padding:10px 11px;outline:none;font:inherit;font-size:11px}
+    .region-tools input:focus,.region-tools select:focus{border-color:rgba(127,211,140,.5);box-shadow:0 0 0 3px rgba(127,211,140,.08)}
+    .region-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;max-height:460px;overflow:auto;padding-right:2px}
+    .region-card{appearance:none;text-align:left;width:100%;border:1px solid var(--line);background:rgba(255,255,255,.016);border-radius:10px;padding:12px;cursor:pointer;color:var(--text);transition:.16s ease}
+    .region-card:hover,.region-card:focus-visible{border-color:rgba(127,211,140,.48);background:rgba(127,211,140,.05);transform:translateY(-1px);outline:none}
+    .region-card.active{border-color:rgba(127,211,140,.62);background:rgba(127,211,140,.075);box-shadow:inset 0 0 0 1px rgba(127,211,140,.08)}
+    .region-card small{display:block;color:#68766e;font-size:9px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
+    .region-card strong{display:block;font:600 12px/1.35 "Space Grotesk",sans-serif}
+    .region-card span{display:block;margin-top:5px;color:#7f8d84;font-size:9.5px;line-height:1.45}
+    .region-empty{padding:16px;border:1px dashed var(--line-strong);border-radius:10px;color:#76847c;font-size:11px;grid-column:1/-1}
+
+    .region-panel{position:sticky;top:18px}
+    .detail-empty{min-height:210px}
+    .pilot-status{margin-top:14px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.018);color:#87958d;font-size:11px;line-height:1.5}
+    .pilot-status strong{color:var(--text)}
+    .pilot-status.good{border-color:rgba(127,211,140,.24);color:#9fb7a5}
+    .pilot-status.warn{border-color:rgba(225,198,109,.24);color:#b7aa7d}
+    .pilot-status.error{border-color:rgba(239,146,126,.24);color:#c29a90}
+    .context-shell{margin-top:18px;border-top:1px solid var(--line);padding-top:18px}
+    .context-grid{display:grid;gap:15px;margin-top:14px}
+    .context-block{border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.014);padding:13px}
+    .context-block legend{padding:0 6px;color:#a0aea6;font-size:11px}
+    .choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:8px}
+    .choice{position:relative;display:block;cursor:pointer}
+    .choice input{position:absolute;opacity:0;pointer-events:none}
+    .choice span{display:block;padding:10px;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.012);color:#87958d;font-size:10px;line-height:1.3;min-height:38px;box-sizing:border-box;transition:.14s ease}
+    .choice:hover span{border-color:rgba(127,211,140,.34);color:#aab9af}
+    .choice input:focus-visible + span{outline:2px solid rgba(127,211,140,.7);outline-offset:1px}
+    .choice input:checked + span{border-color:rgba(127,211,140,.64);background:rgba(127,211,140,.1);color:#d7e8da;box-shadow:inset 0 0 0 1px rgba(127,211,140,.08)}
+    .field-label{display:block;color:#9eaba4;font-size:10px;margin-bottom:7px}
+    .text-input,.text-area{width:100%;box-sizing:border-box;background:#0b1511;color:var(--text);border:1px solid var(--line-strong);border-radius:9px;padding:10px 11px;outline:none;font:inherit;font-size:11px}
+    .text-area{min-height:76px;resize:vertical;line-height:1.5}
+    .text-input:focus,.text-area:focus{border-color:rgba(127,211,140,.52);box-shadow:0 0 0 3px rgba(127,211,140,.08)}
+    .two-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .required-note{margin-top:10px;color:#67756d;font-size:9.5px;line-height:1.5}
+    .save-plan{margin-top:14px;width:100%}
+    .save-plan:disabled{opacity:.42;cursor:not-allowed}
+    .plan-summary{margin-top:14px;border:1px solid rgba(127,211,140,.24);border-radius:11px;background:rgba(127,211,140,.045);padding:12px;color:#a6b6ab;font-size:10px;line-height:1.55}
+    .plan-summary b{color:#e0ece2}
+    .future-box{margin-top:14px;padding:12px;border:1px dashed var(--line-strong);border-radius:11px;color:#6f7e75;font-size:10px;line-height:1.55}
+    .future-box strong{color:#99a89e}
+
+    @media(max-width:960px){.region-panel{position:static}.region-list{max-height:none}}
+    @media(max-width:760px){.real-map{min-height:430px;height:58vh}.map-help{flex-direction:column;align-items:flex-start}.map-help .map-chip:last-child{align-self:flex-end}.region-tools{grid-template-columns:1fr}.region-list{grid-template-columns:1fr}.two-fields{grid-template-columns:1fr}}
+  </style>
+</head>
+<body data-page="explore">
+  <div class="site-noise" aria-hidden="true"></div>
+  <header class="site-header">
+    <a class="brand" href="index.html"><span class="brand-mark">R</span><span>ROOTLINE</span></a>
+    <nav class="nav" aria-label="Main navigation">
+      <a class="active" href="explore.html">Explore</a>
+      <a href="guides.html">Guides</a>
+      <a href="impact.html">Impact</a>
+      <a href="projects.html">Projects</a>
+      <a href="about.html">About</a>
+    </nav>
+    <a class="header-cta" href="report.html">Report planting <span>↗</span></a>
+  </header>
+
+  <main>
+    <section class="page-hero compact">
+      <div class="section-kicker">01 / EXPLORE / PILOT</div>
+      <h1>Start with <em>place.</em></h1>
+      <p class="pilot-intro">Choose a point on the map or pick a region from the pilot index. Then tell us the current season, where you plan to plant, and how you plan to do it. Recommendations and guides are deliberately kept for the next build.</p>
+    </section>
+
+    <section class="section explore-layout">
+      <div class="map-panel">
+        <div class="map-toolbar">
+          <span>GLOBAL ECOREGION VIEW</span>
+          <span class="map-status"><i></i> <span id="mapOnlineStatus">LOADING REGION INDEX</span></span>
+        </div>
+        <div id="regionMap" class="real-map" role="application" aria-label="Interactive ecological region map">
+          <div class="map-help" aria-hidden="true">
+            <span class="map-chip">Tap any point to match its ecoregion</span>
+            <span class="map-chip">72-region pilot index • global coverage</span>
+          </div>
+          <div id="mapLoading" class="map-loading">Loading pilot regions…</div>
+        </div>
+
+        <div class="region-index">
+          <div class="region-index-head">
+            <div class="region-index-title">
+              <div class="panel-label">PILOT REGION INDEX</div>
+              <h3>72 regions, chosen for global spread</h3>
+            </div>
+            <div class="region-count" id="regionCount">Loading…</div>
+          </div>
+          <div class="region-tools">
+            <input id="regionSearch" type="search" placeholder="Search region name…" aria-label="Search pilot regions">
+            <select id="realmFilter" aria-label="Filter by realm"><option value="">All realms</option></select>
+            <select id="biomeFilter" aria-label="Filter by biome"><option value="">All biomes</option></select>
+          </div>
+          <div id="regionList" class="region-list" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <aside class="region-panel">
+        <div class="panel-label">01 / LOCATION</div>
+        <div id="regionDetail" class="region-detail detail-empty">
+          <span class="detail-number">00</span>
+          <h2>Choose a point</h2>
+          <p>Tap the map anywhere in the world, or choose a pilot region below it. The system will match the location to the ecological region.</p>
+          <div id="lookupStatus" class="pilot-status">Waiting for a location.</div>
+        </div>
+
+        <div id="contextShell" class="context-shell" hidden>
+          <div class="panel-label">02 / PLANTING PLAN</div>
+          <div class="context-grid">
+            <fieldset class="context-block">
+              <legend>What season is it there? <span aria-hidden="true">*</span></legend>
+              <div class="choice-grid" data-choice-group="season">
+                <label class="choice"><input type="radio" name="season" value="spring"><span>Spring</span></label>
+                <label class="choice"><input type="radio" name="season" value="summer"><span>Summer</span></label>
+                <label class="choice"><input type="radio" name="season" value="autumn"><span>Autumn / Fall</span></label>
+                <label class="choice"><input type="radio" name="season" value="winter"><span>Winter</span></label>
+                <label class="choice"><input type="radio" name="season" value="wet"><span>Wet / rainy season</span></label>
+                <label class="choice"><input type="radio" name="season" value="dry"><span>Dry season</span></label>
+                <label class="choice"><input type="radio" name="season" value="monsoon"><span>Monsoon</span></label>
+                <label class="choice"><input type="radio" name="season" value="transition"><span>Transition / other</span></label>
+              </div>
+            </fieldset>
+
+            <fieldset class="context-block">
+              <legend>Where are you planting? <span aria-hidden="true">*</span></legend>
+              <div class="choice-grid">
+                <label class="choice"><input type="radio" name="place" value="backyard"><span>Backyard / home garden</span></label>
+                <label class="choice"><input type="radio" name="place" value="pond"><span>Beside a pond / wet area</span></label>
+                <label class="choice"><input type="radio" name="place" value="farm"><span>Farm / agroforestry</span></label>
+                <label class="choice"><input type="radio" name="place" value="community"><span>School / community space</span></label>
+                <label class="choice"><input type="radio" name="place" value="roadside"><span>Roadside / public edge</span></label>
+                <label class="choice"><input type="radio" name="place" value="degraded"><span>Degraded land / recovery area</span></label>
+                <label class="choice"><input type="radio" name="place" value="forest"><span>Existing forest / natural habitat</span></label>
+                <label class="choice"><input type="radio" name="place" value="urban"><span>Urban vacant / open space</span></label>
+                <label class="choice"><input type="radio" name="place" value="container"><span>Balcony / container</span></label>
+                <label class="choice"><input type="radio" name="place" value="other"><span>Other</span></label>
+              </div>
+            </fieldset>
+
+            <fieldset class="context-block">
+              <legend>How are you planning to plant? <span aria-hidden="true">*</span></legend>
+              <div class="choice-grid">
+                <label class="choice"><input type="radio" name="method" value="garden"><span>Small garden / home planting</span></label>
+                <label class="choice"><input type="radio" name="method" value="restoration"><span>Habitat recovery / restoration</span></label>
+                <label class="choice"><input type="radio" name="method" value="reforestation"><span>Forest restoration / reforestation</span></label>
+                <label class="choice"><input type="radio" name="method" value="afforestation"><span>Afforestation / new planting</span></label>
+                <label class="choice"><input type="radio" name="method" value="agroforestry"><span>Agroforestry</span></label>
+                <label class="choice"><input type="radio" name="method" value="drone"><span>Drone seed drop</span></label>
+                <label class="choice"><input type="radio" name="method" value="natural"><span>Support natural regeneration</span></label>
+                <label class="choice"><input type="radio" name="method" value="roadside"><span>Roadside planting</span></label>
+                <label class="choice"><input type="radio" name="method" value="other"><span>Other</span></label>
+              </div>
+            </fieldset>
+
+            <div class="context-block">
+              <div class="two-fields">
+                <div>
+                  <label class="field-label" for="plantCount">Approx. number of plants</label>
+                  <input id="plantCount" class="text-input" type="number" min="1" inputmode="numeric" placeholder="e.g. 25">
+                </div>
+                <div>
+                  <label class="field-label" for="areaSize">Approx. planting area</label>
+                  <input id="areaSize" class="text-input" type="text" maxlength="40" placeholder="e.g. 200 m²">
+                </div>
+              </div>
+            </div>
+
+            <div class="context-block">
+              <label class="field-label" for="siteNotes">Anything else about the site? <span style="color:#65736b">(optional)</span></label>
+              <textarea id="siteNotes" class="text-area" maxlength="500" placeholder="Examples: near a stream, sandy soil, school yard, fenced area…"></textarea>
+            </div>
+          </div>
+
+          <div class="required-note">* Required to save the pilot plan. These inputs will become filters for the future recommendation and guide engine.</div>
+          <button id="savePlan" class="button button-primary save-plan" type="button" disabled>Save this planting plan</button>
+          <div id="planSummary" class="plan-summary" hidden></div>
+
+          <div class="future-box"><strong>Recommendation layer — later.</strong> This pilot intentionally does not guess plant species yet. First we’re making sure the location + context data is captured cleanly enough to power that layer.</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="section three-up">
+      <article class="info-tile"><div class="tile-label">STEP 01</div><h3>Location</h3><p>Tap a map point or choose one of the pilot regions. The system checks the point against the RESOLVE ecoregion polygons.</p></article>
+      <article class="info-tile"><div class="tile-label">STEP 02</div><h3>Context</h3><p>Season, planting place, approach, scale and site notes are collected as structured inputs.</p></article>
+      <article class="info-tile"><div class="tile-label">STEP 03 — LATER</div><h3>Species</h3><p>Evidence-backed plant matches and practical guides come only after the pilot plant database is built and reviewed.</p></article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div><strong>ROOTLINE</strong><span>EXPLORE / PILOT</span><small style="display:block;margin-top:7px;letter-spacing:.02em;text-transform:none;color:#56635c;max-width:620px">Ecoregion baseline: RESOLVE Ecoregions 2017, CC BY 4.0. Map tiles: OpenStreetMap contributors.</small></div>
+    <div class="footer-links"><a href="index.html">Home</a><a href="about.html">About</a></div>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+  (() => {
+    const QUERY_URL = 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/Resolve_Ecoregions/FeatureServer/0/query';
+    const FEATURED_COUNT = 72;
+    const FEATURED_STYLE = { color:'#71977a', weight:1, opacity:.68, fillColor:'#7fd38c', fillOpacity:.045 };
+    const HOVER_STYLE = { color:'#9ac8a2', weight:1.5, opacity:.9, fillColor:'#7fd38c', fillOpacity:.10 };
+
+    const els = {
+      map: document.getElementById('regionMap'),
+      mapLoading: document.getElementById('mapLoading'),
+      mapOnlineStatus: document.getElementById('mapOnlineStatus'),
+      detail: document.getElementById('regionDetail'),
+      contextShell: document.getElementById('contextShell'),
+      regionList: document.getElementById('regionList'),
+      regionCount: document.getElementById('regionCount'),
+      search: document.getElementById('regionSearch'),
+      realmFilter: document.getElementById('realmFilter'),
+      biomeFilter: document.getElementById('biomeFilter'),
+      savePlan: document.getElementById('savePlan'),
+      planSummary: document.getElementById('planSummary'),
+      plantCount: document.getElementById('plantCount'),
+      areaSize: document.getElementById('areaSize'),
+      siteNotes: document.getElementById('siteNotes')
+    };
+
+    const map = L.map(els.map, { worldCopyJump:true, minZoom:2, maxZoom:12, zoomControl:true }).setView([20,0],2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap contributors' }).addTo(map);
+
+    const markerIcon = L.divIcon({ className:'selection-point', iconSize:[18,18], iconAnchor:[9,9] });
+    let selectionMarker = null;
+    let selectedRegionLayer = null;
+    let selectedRegion = null;
+    let featuredRegions = [];
+    let featuredLayer = null;
+
+    const esc = (value) => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+    const clean = (value) => String(value ?? '').trim();
+
+    function setStatus(message, tone='') {
+      const node = document.getElementById('lookupStatus');
+      if (!node) return;
+      node.textContent = message;
+      node.className = `pilot-status ${tone}`.trim();
+    }
+
+    function queryJson(params) {
+      return fetch(`${QUERY_URL}?${new URLSearchParams(params).toString()}`, { headers:{Accept:'application/json, application/geo+json'} })
+        .then(r => { if (!r.ok) throw new Error(`Region service returned HTTP ${r.status}`); return r.json(); });
+    }
+
+    function labelizeRealm(realm) { return realm || 'Unknown realm'; }
+
+    function getSelected(name) {
+      const radio = document.querySelector(`input[name="${name}"]:checked`);
+      return radio ? radio.value : '';
+    }
+
+    function getSelectedLabel(name) {
+      const radio = document.querySelector(`input[name="${name}"]:checked`);
+      if (!radio) return '';
+      return radio.nextElementSibling ? radio.nextElementSibling.textContent.trim() : radio.value;
+    }
+
+    function clearPlanSummary() {
+      els.planSummary.hidden = true;
+      els.planSummary.innerHTML = '';
+    }
+
+    function updateSaveState() {
+      const complete = Boolean(selectedRegion && getSelected('season') && getSelected('place') && getSelected('method'));
+      els.savePlan.disabled = !complete;
+    }
+
+    function populateFilters() {
+      const realms = [...new Set(featuredRegions.map(r => clean(r.REALM)).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+      const biomes = [...new Set(featuredRegions.map(r => clean(r.BIOME_NAME)).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+      for (const realm of realms) els.realmFilter.insertAdjacentHTML('beforeend', `<option value="${esc(realm)}">${esc(realm)}</option>`);
+      for (const biome of biomes) els.biomeFilter.insertAdjacentHTML('beforeend', `<option value="${esc(biome)}">${esc(biome)}</option>`);
+    }
+
+    function renderRegionList() {
+      const q = clean(els.search.value).toLowerCase();
+      const realm = els.realmFilter.value;
+      const biome = els.biomeFilter.value;
+      const filtered = featuredRegions.filter(r => {
+        const name = clean(r.ECO_NAME).toLowerCase();
+        return (!q || name.includes(q)) && (!realm || r.REALM === realm) && (!biome || r.BIOME_NAME === biome);
+      });
+      els.regionCount.textContent = `${filtered.length} shown / ${featuredRegions.length} pilot regions`;
+      if (!filtered.length) {
+        els.regionList.innerHTML = '<div class="region-empty">No pilot regions match those filters.</div>';
+        return;
+      }
+      els.regionList.innerHTML = filtered.map(r => `
+        <button class="region-card${selectedRegion && String(selectedRegion.FID) === String(r.FID) ? ' active' : ''}" type="button" data-fid="${esc(r.FID)}">
+          <small>ECO ${esc(r.ECO_ID)} · ${esc(labelizeRealm(r.REALM))}</small>
+          <strong>${esc(r.ECO_NAME)}</strong>
+          <span>${esc(r.BIOME_NAME || 'Biome not listed')}</span>
+        </button>`).join('');
+      els.regionList.querySelectorAll('.region-card').forEach(btn => btn.addEventListener('click', () => {
+        const region = featuredRegions.find(r => String(r.FID) === String(btn.dataset.fid));
+        if (region) chooseFeaturedRegion(region);
+      }));
+    }
+
+    function chooseFeaturedRegion(region) {
+      const id = Number(region.FID);
+      const geometryParams = { f:'geojson', where:`FID=${id}`, outFields:'FID,ECO_ID,ECO_NAME,BIOME_NAME,REALM', returnGeometry:'true', outSR:'4326' };
+      queryJson(geometryParams).then(data => {
+        const feature = data.features && data.features[0];
+        if (!feature) throw new Error('The selected region geometry was not returned.');
+        const props = feature.properties || region;
+        const gj = L.geoJSON(feature, { style:{color:'#7fd38c',weight:2,opacity:1,fillColor:'#7fd38c',fillOpacity:.18} });
+        if (selectedRegionLayer) map.removeLayer(selectedRegionLayer);
+        selectedRegionLayer = gj.addTo(map);
+        try { map.fitBounds(gj.getBounds().pad(.12), { maxZoom:7, animate:true }); } catch (_) {}
+        selectRegion(props, null, null);
+      }).catch(err => showError(err.message));
+    }
+
+    function selectRegion(props, lat, lng) {
+      selectedRegion = props;
+      if (selectionMarker && lat != null && lng != null) selectionMarker.setLatLng([lat,lng]);
+      if (lat != null && lng != null) {
+        const coordsText = `${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`;
+        els.detail.innerHTML = `
+          <span class="detail-number">ECOREGION ${esc(props.ECO_ID)}</span>
+          <h2>${esc(props.ECO_NAME)}</h2>
+          <p>Selected point: ${esc(coordsText)}.</p>
+          <div class="condition-list"><span>${esc(props.BIOME_NAME || 'Biome not listed')}</span><span>${esc(props.REALM || 'Realm not listed')}</span></div>
+          <div id="lookupStatus" class="pilot-status good">Region matched successfully.</div>`;
+      } else {
+        els.detail.innerHTML = `
+          <span class="detail-number">ECOREGION ${esc(props.ECO_ID)}</span>
+          <h2>${esc(props.ECO_NAME)}</h2>
+          <p>Pilot region selected from the index.</p>
+          <div class="condition-list"><span>${esc(props.BIOME_NAME || 'Biome not listed')}</span><span>${esc(props.REALM || 'Realm not listed')}</span></div>
+          <div id="lookupStatus" class="pilot-status good">Region selected successfully.</div>`;
+      }
+      els.contextShell.hidden = false;
+      els.planSummary.hidden = true;
+      renderRegionList();
+      updateSaveState();
+      sessionStorage.setItem('seedStormSelection', JSON.stringify({ regionId:props.ECO_ID, regionName:props.ECO_NAME, biome:props.BIOME_NAME || '', realm:props.REALM || '', latitude:lat==null?null:Number(lat.toFixed(6)), longitude:lng==null?null:Number(lng.toFixed(6)) }));
+    }
+
+    function showError(message) {
+      els.detail.innerHTML = `
+        <span class="detail-number">LOOKUP ERROR</span>
+        <h2>Could not match this location</h2>
+        <p>The map click worked, but the ecological region service did not return a usable record.</p>
+        <div id="lookupStatus" class="pilot-status error">${esc(message)}</div>`;
+      els.contextShell.hidden = true;
+      selectedRegion = null;
+      updateSaveState();
+    }
+
+    async function lookupPoint(lat,lng) {
+      if (selectionMarker) map.removeLayer(selectionMarker);
+      if (selectedRegionLayer) { map.removeLayer(selectedRegionLayer); selectedRegionLayer=null; }
+      selectionMarker = L.marker([lat,lng], {icon:markerIcon, keyboard:false}).addTo(map);
+      els.detail.innerHTML = '<span class="detail-number">—</span><h2>Checking location…</h2><p>Finding the ecoregion that contains this point.</p><div id="lookupStatus" class="pilot-status">Looking up the region…</div>';
+      els.contextShell.hidden = true;
+      try {
+        const data = await queryJson({ f:'geojson', where:'1=1', geometry:`${lng},${lat}`, geometryType:'esriGeometryPoint', inSR:'4326', spatialRel:'esriSpatialRelIntersects', outFields:'FID,ECO_ID,ECO_NAME,BIOME_NAME,REALM', returnGeometry:'true', outSR:'4326' });
+        if (!data.features || !data.features.length) throw new Error('No ecoregion polygon was returned for this point.');
+        const feature = data.features[0];
+        selectedRegionLayer = L.geoJSON(feature, { style:{color:'#7fd38c',weight:2,opacity:1,fillColor:'#7fd38c',fillOpacity:.18} }).addTo(map);
+        selectRegion(feature.properties || {}, lat, lng);
+      } catch (err) { showError(err.message); }
+    }
+
+    async function loadFeaturedRegions() {
+      try {
+        const data = await queryJson({ f:'json', where:'1=1', outFields:'FID,ECO_ID,ECO_NAME,BIOME_NAME,REALM', returnGeometry:'false', resultRecordCount:'2000', orderByFields:'ECO_ID ASC' });
+        const all = (data.features || []).map(f => f.attributes || {}).filter(r => r.ECO_NAME);
+        if (all.length < FEATURED_COUNT) throw new Error(`Expected a large ecoregion index, but only ${all.length} records were returned.`);
+
+        // Pick a diverse 72-region slice: round-robin by realm and then by biome.
+        const byRealm = new Map();
+        all.forEach(r => {
+          const realm = r.REALM || 'Unknown realm';
+          if (!byRealm.has(realm)) byRealm.set(realm, []);
+          byRealm.get(realm).push(r);
+        });
+        [...byRealm.values()].forEach(list => list.sort((a,b)=>String(a.BIOME_NAME||'').localeCompare(String(b.BIOME_NAME||'')) || Number(a.ECO_ID)-Number(b.ECO_ID)));
+        const realmNames = [...byRealm.keys()].sort();
+        const picked = [];
+        let cursor = 0;
+        while (picked.length < FEATURED_COUNT && realmNames.length) {
+          let addedThisRound = 0;
+          for (const realm of realmNames) {
+            const list = byRealm.get(realm);
+            if (list && list[cursor]) { picked.push(list[cursor]); addedThisRound++; if (picked.length >= FEATURED_COUNT) break; }
+          }
+          if (!addedThisRound) { cursor++; break; }
+          cursor++;
+          if (cursor > all.length) break;
+        }
+        featuredRegions = picked.slice(0, FEATURED_COUNT);
+        populateFilters();
+        renderRegionList();
+        els.mapOnlineStatus.textContent = 'REGION INDEX ONLINE';
+        els.mapLoading.textContent = `Loading ${featuredRegions.length} pilot regions on the map…`;
+        await loadFeaturedGeometry();
+        els.mapLoading.remove();
+      } catch (err) {
+        console.error(err);
+        els.mapOnlineStatus.textContent = 'INDEX ERROR';
+        els.mapLoading.textContent = 'Region index could not load. Map point lookup may still work.';
+        els.regionList.innerHTML = `<div class="region-empty">Could not load the pilot region list: ${esc(err.message)}</div>`;
+      }
+    }
+
+    async function loadFeaturedGeometry() {
+      const ids = featuredRegions.map(r => Number(r.FID)).filter(Number.isFinite);
+      if (!ids.length) return;
+      const where = `FID IN (${ids.join(',')})`;
+      const data = await queryJson({ f:'geojson', where, outFields:'FID,ECO_ID,ECO_NAME,BIOME_NAME,REALM', returnGeometry:'true', outSR:'4326', maxAllowableOffset:'0.05' });
+      featuredLayer = L.geoJSON(data, {
+        style: FEATURED_STYLE,
+        onEachFeature: (feature, layer) => {
+          const p = feature.properties || {};
+          layer.bindTooltip(`<strong>${esc(p.ECO_NAME || 'Ecoregion')}</strong><br><span style="font-size:9px">ECO ${esc(p.ECO_ID || '—')}</span>`, { sticky:true, direction:'top', opacity:.96 });
+          layer.on({ mouseover:()=>layer.setStyle(HOVER_STYLE), mouseout:()=>layer.setStyle(FEATURED_STYLE), click:()=>chooseFeaturedRegion(p) });
+        }
+      }).addTo(map);
+    }
+
+    els.search.addEventListener('input', renderRegionList);
+    els.realmFilter.addEventListener('change', renderRegionList);
+    els.biomeFilter.addEventListener('change', renderRegionList);
+    document.querySelectorAll('input[type="radio"]').forEach(r => r.addEventListener('change', updateSaveState));
+    [els.plantCount, els.areaSize, els.siteNotes].forEach(i => i.addEventListener('input', updateSaveState));
+
+    els.savePlan.addEventListener('click', () => {
+      if (!selectedRegion || !getSelected('season') || !getSelected('place') || !getSelected('method')) return;
+      const plan = {
+        savedAt: new Date().toISOString(),
+        location: JSON.parse(sessionStorage.getItem('seedStormSelection') || '{}'),
+        season: getSelected('season'), seasonLabel: getSelectedLabel('season'),
+        place: getSelected('place'), placeLabel: getSelectedLabel('place'),
+        method: getSelected('method'), methodLabel: getSelectedLabel('method'),
+        plantCount: clean(els.plantCount.value) || null,
+        areaSize: clean(els.areaSize.value) || null,
+        siteNotes: clean(els.siteNotes.value) || null
+      };
+      localStorage.setItem('seedStormPilotPlan', JSON.stringify(plan));
+      els.planSummary.hidden = false;
+      els.planSummary.innerHTML = `<b>Saved locally for this pilot:</b> ${esc(plan.location.regionName)} · ${esc(plan.seasonLabel)} · ${esc(plan.placeLabel)} · ${esc(plan.methodLabel)}${plan.plantCount ? ` · ${esc(plan.plantCount)} plants` : ''}${plan.areaSize ? ` · ${esc(plan.areaSize)}` : ''}.`;
+      els.savePlan.textContent = 'Pilot plan saved';
+    });
+
+    map.on('click', e => lookupPoint(e.latlng.lat,e.latlng.lng));
+    loadFeaturedRegions();
+  })();
+  </script>
+</body>
+</html>
